@@ -23,12 +23,18 @@ class SecurePress_Installer {
      */
     public static function activate() {
         try {
-            // Debug: Only create basic tables
+            // Create database tables
             self::create_tables();
             
+            // Setup user capabilities
+            self::setup_capabilities();
+            
+            // Create upload directory
+            self::create_upload_directory();
+            
             // Set activation flag
-            update_option('securepress_activated', time());
-            update_option('securepress_version', SECUREPRESS_X_VERSION);
+            update_option('securepress_x_activated', time());
+            update_option('securepress_x_version', SECUREPRESS_X_VERSION);
             
             // Log success
             error_log('SecurePress X activation completed successfully');
@@ -57,7 +63,7 @@ class SecurePress_Installer {
      */
     public static function uninstall() {
         // Check if we should delete data
-        $delete_data = get_option('securepress_delete_data_on_uninstall', false);
+        $delete_data = get_option('securepress_x_delete_data_on_uninstall', false);
         
         if ($delete_data) {
             // Drop custom tables
@@ -108,19 +114,38 @@ class SecurePress_Installer {
                 username varchar(255) NOT NULL,
                 attempt_time datetime NOT NULL,
                 user_agent varchar(255),
+                locked_until datetime NULL,
+                attempts int(11) NOT NULL DEFAULT 1,
                 PRIMARY KEY (id),
                 KEY ip_address (ip_address),
                 KEY attempt_time (attempt_time)
             ) $charset_collate;";
             
+            // Create file integrity table
+            $table_file_integrity = $wpdb->prefix . 'securepress_file_integrity';
+            
+            $sql_file_integrity = "CREATE TABLE IF NOT EXISTS $table_file_integrity (
+                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+                file_path varchar(512) NOT NULL,
+                file_hash varchar(64) NOT NULL,
+                file_type varchar(20) NOT NULL,
+                last_checked datetime NOT NULL,
+                status varchar(20) NOT NULL DEFAULT 'ok',
+                PRIMARY KEY (id),
+                UNIQUE KEY file_path (file_path),
+                KEY file_type (file_type),
+                KEY status (status)
+            ) $charset_collate;";
+            
             require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
             
-            // Create both tables
+            // Create tables
             dbDelta($sql_log);
             dbDelta($sql_failed_logins);
+            dbDelta($sql_file_integrity);
             
             // Save database version
-            update_option('securepress_db_version', '1.0.0');
+            update_option('securepress_x_db_version', '1.0.0');
             
         } catch (Exception $e) {
             error_log('SecurePress X table creation error: ' . $e->getMessage());
@@ -136,7 +161,8 @@ class SecurePress_Installer {
         
         $tables = array(
             $wpdb->prefix . 'securepress_log',
-            $wpdb->prefix . 'securepress_failed_logins'
+            $wpdb->prefix . 'securepress_failed_logins',
+            $wpdb->prefix . 'securepress_file_integrity'
         );
         
         foreach ($tables as $table) {
@@ -237,19 +263,15 @@ class SecurePress_Installer {
      */
     private static function delete_options() {
         $options = array(
-            'securepress_settings',
-            'securepress_version',
-            'securepress_db_version',
-            'securepress_activated',
-            'securepress_delete_data_on_uninstall'
+            'securepress_x_settings',
+            'securepress_x_version',
+            'securepress_x_db_version',
+            'securepress_x_activated',
+            'securepress_x_delete_data_on_uninstall'
         );
         
         foreach ($options as $option) {
             delete_option($option);
         }
-        
-        // Delete module-specific options
-        global $wpdb;
-        $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE 'securepress_%'");
     }
 } 

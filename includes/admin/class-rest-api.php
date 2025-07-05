@@ -315,21 +315,27 @@ class SecurePress_Rest_API {
     }
     
     /**
-     * Get logs
+     * Get logs with filtering and pagination
      */
     public function get_logs($request) {
-        $page = $request->get_param('page');
-        $per_page = $request->get_param('per_page');
-        $level = $request->get_param('level');
+        $page = $request->get_param('page') ? (int) $request->get_param('page') : 1;
+        $per_page = $request->get_param('per_page') ? (int) $request->get_param('per_page') : 20;
+        $type = $request->get_param('type');
+        $severity = $request->get_param('severity');
         $search = $request->get_param('search');
+        $date_from = $request->get_param('date_from');
+        $date_to = $request->get_param('date_to');
         
         try {
             $logger = $this->plugin->get_logger();
             $logs = $logger->get_logs(array(
                 'page' => $page,
                 'per_page' => $per_page,
-                'level' => $level,
-                'search' => $search
+                'type' => $type,
+                'severity' => $severity,
+                'search' => $search,
+                'date_from' => $date_from,
+                'date_to' => $date_to
             ));
             
             return rest_ensure_response($logs);
@@ -353,8 +359,13 @@ class SecurePress_Rest_API {
                     'enabled' => false,
                     'hsts_enabled' => true,
                     'xframe_enabled' => true,
+                    'x_content_type_options' => true,
+                    'x_xss_protection' => true,
+                    'referrer_policy' => true,
                     'csp_enabled' => false,
                     'custom_csp_policy' => '',
+                    'custom_ido_header_enabled' => false,
+                    'custom_ido_header_value' => 'Secure',
                 ),
                 'file_integrity' => array(
                     'enabled' => false,
@@ -407,8 +418,8 @@ class SecurePress_Rest_API {
                 )
             );
             
-            // Get settings with consistent option name
-            $settings = get_option('securepress_settings', array());
+            // Get settings with correct option name
+            $settings = get_option('securepress_x_settings', array());
             
             // Ensure all default settings exist by merging with defaults
             $settings = wp_parse_args($settings, $default_settings);
@@ -432,42 +443,103 @@ class SecurePress_Rest_API {
      */
     public function update_settings($request) {
         try {
-            $settings = $request->get_param('settings');
+            // Get settings from request - support both direct and nested format
+            $data = $request->get_params();
+            $settings = isset($data['settings']) ? $data['settings'] : $data;
             
             if (!is_array($settings)) {
                 return new WP_Error('invalid_settings', __('Invalid settings data', 'securepress-x'), array('status' => 400));
             }
             
-            // Validate settings against default structure
-            $default_settings = $this->get_settings(new WP_REST_Request())->get_data();
+            // Debug log
+            error_log('SecurePress X: Updating settings: ' . wp_json_encode($settings));
             
-            // Ensure all required sections exist
-            foreach ($default_settings as $section => $section_defaults) {
-                if (!isset($settings[$section])) {
-                    $settings[$section] = $section_defaults;
-                } else {
-                    $settings[$section] = wp_parse_args($settings[$section], $section_defaults);
-                }
-            }
-            
-            $result = update_option('securepress_settings', $settings);
-            
-            if ($result) {
-                $this->plugin->get_logger()->log(
-                    'settings_update',
-                    'Global settings updated',
-                    'info'
-                );
+            try {
+                // Validate settings against default structure
+                $default_settings = $this->get_settings(new WP_REST_Request())->get_data();
                 
-                return rest_ensure_response(array(
-                    'success' => true,
-                    'message' => __('Settings updated successfully', 'securepress-x'),
-                    'settings' => $settings
-                ));
-            } else {
-                return new WP_Error('update_failed', __('Failed to update settings', 'securepress-x'), array('status' => 500));
+                // Create a new settings array to ensure proper structure
+                $validated_settings = array();
+                
+                // Ensure all required sections exist
+                foreach ($default_settings as $section => $section_defaults) {
+                    if (!isset($settings[$section]) || !is_array($settings[$section])) {
+                        $validated_settings[$section] = $section_defaults;
+                    } else {
+                        // Ensure each section has all required keys with proper types
+                        $validated_settings[$section] = array();
+                        foreach ($section_defaults as $key => $default_value) {
+                            if (isset($settings[$section][$key])) {
+                                // Type casting based on default value type
+                                $type = gettype($default_value);
+                                switch ($type) {
+                                    case 'boolean':
+                                        $validated_settings[$section][$key] = (bool) $settings[$section][$key];
+                                        break;
+                                    case 'integer':
+                                        $validated_settings[$section][$key] = (int) $settings[$section][$key];
+                                        break;
+                                    case 'string':
+                                        $validated_settings[$section][$key] = is_string($settings[$section][$key]) ? 
+                                            sanitize_text_field($settings[$section][$key]) : (string) $settings[$section][$key];
+                                        break;
+                                    case 'array':
+                                        $validated_settings[$section][$key] = is_array($settings[$section][$key]) ? 
+                                            $settings[$section][$key] : $default_value;
+                                        break;
+                                    default:
+                                        $validated_settings[$section][$key] = $settings[$section][$key];
+                                }
+                            } else {
+                                $validated_settings[$section][$key] = $default_value;
+                            }
+                        }
+                    }
+                }
+                
+                // Remove any extra settings that aren't in the default structure
+                // We don't need to process these, just skip them
+                
+                // Update the option with validated settings
+                $result = update_option('securepress_x_settings', $validated_settings);
+                
+                if ($result) {
+                    // Log success
+                    error_log('SecurePress X: Settings updated successfully');
+                    
+                    try {
+                        $this->plugin->get_logger()->log(
+                            'settings_update',
+                            'Global settings updated',
+                            'info'
+                        );
+                    } catch (Exception $log_error) {
+                        error_log('SecurePress X: Error logging settings update: ' . $log_error->getMessage());
+                        // Continue even if logging fails
+                    }
+                    
+                    return rest_ensure_response(array(
+                        'success' => true,
+                        'message' => __('Settings updated successfully', 'securepress-x'),
+                        'settings' => $validated_settings
+                    ));
+                } else {
+                    // Log failure
+                    error_log('SecurePress X: Failed to update settings - no changes or option already exists');
+                    
+                    // If no changes were made, still return success
+                    return rest_ensure_response(array(
+                        'success' => true,
+                        'message' => __('No changes were made to settings', 'securepress-x'),
+                        'settings' => $validated_settings
+                    ));
+                }
+            } catch (Exception $validation_error) {
+                error_log('SecurePress X: Validation error in update_settings: ' . $validation_error->getMessage());
+                return new WP_Error('validation_error', $validation_error->getMessage(), array('status' => 400));
             }
         } catch (Exception $e) {
+            error_log('SecurePress X: Exception in update_settings: ' . $e->getMessage() . ' - ' . $e->getTraceAsString());
             return new WP_Error('api_error', $e->getMessage(), array('status' => 500));
         }
     }

@@ -65,7 +65,7 @@ class SecurePress_Admin {
      */
     public function admin_init() {
         // Register settings for WordPress Settings API (fallback)
-        register_setting('securepress_settings', 'securepress_settings');
+        register_setting('securepress_x_settings', 'securepress_x_settings');
     }
     
     /**
