@@ -130,25 +130,78 @@ const Settings = () => {
         }));
     };
 
-    const renderCollapsibleCard = (section, title, icon, children) => (
-        <Card key={section} className="settings-card">
+    // Render improved setting field with better alignment
+    const renderSettingField = (label, value, onChange, type = 'toggle', options = null, description = null) => {
+        return (
+            <div className="modern-setting-field">
+                <div className="setting-main">
+                    <div className="setting-info">
+                        <label className="setting-label">{label}</label>
+                        {description && <p className="setting-description">{description}</p>}
+                    </div>
+                    <div className="setting-control">
+                        {type === 'toggle' && (
+                            <ToggleControl
+                                checked={value}
+                                onChange={(newValue) => onChange(newValue)}
+                                __nextHasNoMarginBottom
+                            />
+                        )}
+                        {type === 'text' && (
+                            <TextControl
+                                value={value}
+                                onChange={onChange}
+                                __nextHasNoMarginBottom
+                            />
+                        )}
+                        {type === 'number' && (
+                            <TextControl
+                                type="number"
+                                value={value}
+                                onChange={onChange}
+                                __nextHasNoMarginBottom
+                            />
+                        )}
+                        {type === 'select' && options && (
+                            <SelectControl
+                                value={value}
+                                options={options}
+                                onChange={onChange}
+                                __nextHasNoMarginBottom
+                            />
+                        )}
+                        {type === 'email' && (
+                            <TextControl
+                                type="email"
+                                value={value}
+                                onChange={onChange}
+                                __nextHasNoMarginBottom
+                            />
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    const renderModernCard = (section, title, icon, children) => (
+        <Card key={section} className="modern-settings-card">
             <CardHeader
-                className="card-header"
+                className="modern-card-header"
                 onClick={() => toggleSection(section)}
             >
-                <h3 className="card-title">
-                    <div className="title-content">
+                <div className="card-header-content">
+                    <div className="card-header-main">
                         {icon}
-                        {title}
+                        <h3 className="card-title">{title}</h3>
                     </div>
                     <ChevronDown 
-                        className={`chevron-icon ${expandedSections[section] ? 'rotate-180' : ''}`}
-                        style={{ transform: expandedSections[section] ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                        className={`chevron-icon ${expandedSections[section] ? 'expanded' : ''}`}
                     />
-                </h3>
+                </div>
             </CardHeader>
             {expandedSections[section] && (
-                <CardBody className="card-content">
+                <CardBody className="modern-card-body">
                     {children}
                 </CardBody>
             )}
@@ -160,7 +213,7 @@ const Settings = () => {
             <div className="securepress-settings">
                 <div className="settings-grid">
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
-                        <Card key={i} className="settings-card">
+                        <Card key={i} className="modern-settings-card">
                             <CardBody>
                                 <div className="animate-pulse">
                                     <div className="h-6 bg-gray-200 rounded w-3/4 mb-4"></div>
@@ -200,240 +253,185 @@ const Settings = () => {
                 </Button>
             </div>
 
-            <p className="settings-description">
-                {__('Configure your WordPress security settings. Each section below controls different aspects of your site security.', 'securepress-x')}
-            </p>
-
-            <div className="settings-grid">
+            <div className="modern-settings-grid">
                 {/* Login Protection */}
-                {renderCollapsibleCard('loginProtection', __('Login Protection', 'securepress-x'), <Lock className="card-icon" />, (
-                    <div className="space-y-4">
-                        <div className="setting-field">
-                            <div className="setting-control">
-                                <label>{__('Enable Login Protection', 'securepress-x')}</label>
-                                <ToggleControl
-                                    checked={settings.loginProtection.enabled}
-                                    onChange={(value) => updateSetting('loginProtection', 'enabled', value)}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="setting-field">
-                            <TextControl
-                                label={__('Custom Login URL', 'securepress-x')}
-                                value={settings.loginProtection.customUrl}
-                                onChange={(value) => updateSetting('loginProtection', 'customUrl', value)}
-                            />
-                            <p className="setting-description">
-                                {__('Replace the login URL with a custom slug', 'securepress-x')}
-                            </p>
-                        </div>
-
-                        <div className="setting-field">
-                            <div className="setting-control">
-                                <label>{__('Redirect to Homepage', 'securepress-x')}</label>
-                                <ToggleControl
-                                    checked={settings.loginProtection.redirectToHomepage}
-                                    onChange={(value) => updateSetting('loginProtection', 'redirectToHomepage', value)}
-                                />
-                            </div>
-                            <p className="setting-description">
-                                {__('Redirect 404 errors to homepage', 'securepress-x')}
-                            </p>
-                        </div>
+                {renderModernCard('loginProtection', __('Login Protection', 'securepress-x'), <Lock className="card-icon" />, (
+                    <div className="settings-group">
+                        {renderSettingField(
+                            __('Enable Login Protection', 'securepress-x'),
+                            settings.loginProtection.enabled,
+                            (value) => updateSetting('loginProtection', 'enabled', value)
+                        )}
+                        
+                        {renderSettingField(
+                            __('Custom Login URL', 'securepress-x'),
+                            settings.loginProtection.customUrl,
+                            (value) => updateSetting('loginProtection', 'customUrl', value),
+                            'text',
+                            null,
+                            __('Replace the login URL with a custom slug', 'securepress-x')
+                        )}
+                        
+                        {renderSettingField(
+                            __('Redirect to Homepage', 'securepress-x'),
+                            settings.loginProtection.redirectToHomepage,
+                            (value) => updateSetting('loginProtection', 'redirectToHomepage', value),
+                            'toggle',
+                            null,
+                            __('Redirect 404 errors to homepage', 'securepress-x')
+                        )}
                     </div>
                 ))}
 
                 {/* HTTP Security Headers */}
-                {renderCollapsibleCard('httpSecurity', __('HTTP Security Headers', 'securepress-x'), <Globe className="card-icon" />, (
-                    <div className="setting-field">
-                        <div className="setting-control">
-                            <label>{__('Enable HTTP Security Headers', 'securepress-x')}</label>
-                            <ToggleControl
-                                checked={settings.httpSecurity.enabled}
-                                onChange={(value) => updateSetting('httpSecurity', 'enabled', value)}
-                            />
-                        </div>
+                {renderModernCard('httpSecurity', __('HTTP Security Headers', 'securepress-x'), <Globe className="card-icon" />, (
+                    <div className="settings-group">
+                        {renderSettingField(
+                            __('Enable HTTP Security Headers', 'securepress-x'),
+                            settings.httpSecurity.enabled,
+                            (value) => updateSetting('httpSecurity', 'enabled', value)
+                        )}
                     </div>
                 ))}
 
                 {/* File Integrity Scanner */}
-                {renderCollapsibleCard('fileIntegrity', __('File Integrity Scanner', 'securepress-x'), <FileText className="card-icon" />, (
-                    <div className="space-y-4">
-                        <div className="setting-field">
-                            <div className="setting-control">
-                                <label>{__('Enable File Integrity Scanner', 'securepress-x')}</label>
-                                <ToggleControl
-                                    checked={settings.fileIntegrity.enabled}
-                                    onChange={(value) => updateSetting('fileIntegrity', 'enabled', value)}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="setting-field">
-                            <SelectControl
-                                label={__('Scan Frequency', 'securepress-x')}
-                                value={settings.fileIntegrity.frequency}
-                                options={[
-                                    { label: __('Daily', 'securepress-x'), value: 'daily' },
-                                    { label: __('Weekly', 'securepress-x'), value: 'weekly' },
-                                    { label: __('Monthly', 'securepress-x'), value: 'monthly' },
-                                ]}
-                                onChange={(value) => updateSetting('fileIntegrity', 'frequency', value)}
-                            />
-                        </div>
-
-                        <div className="setting-field">
-                            <div className="setting-control">
-                                <label>{__('Scan WordPress Core', 'securepress-x')}</label>
-                                <ToggleControl
-                                    checked={settings.fileIntegrity.scanCore}
-                                    onChange={(value) => updateSetting('fileIntegrity', 'scanCore', value)}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="setting-field">
-                            <div className="setting-control">
-                                <label>{__('Scan Plugins', 'securepress-x')}</label>
-                                <ToggleControl
-                                    checked={settings.fileIntegrity.scanPlugins}
-                                    onChange={(value) => updateSetting('fileIntegrity', 'scanPlugins', value)}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="setting-field">
-                            <div className="setting-control">
-                                <label>{__('Scan Themes', 'securepress-x')}</label>
-                                <ToggleControl
-                                    checked={settings.fileIntegrity.scanThemes}
-                                    onChange={(value) => updateSetting('fileIntegrity', 'scanThemes', value)}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="setting-field">
-                            <div className="setting-control">
-                                <label>{__('Email Notifications', 'securepress-x')}</label>
-                                <ToggleControl
-                                    checked={settings.fileIntegrity.emailNotifications}
-                                    onChange={(value) => updateSetting('fileIntegrity', 'emailNotifications', value)}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="setting-field">
-                            <div className="setting-control">
-                                <label>{__('Webhook Notifications', 'securepress-x')}</label>
-                                <ToggleControl
-                                    checked={settings.fileIntegrity.webhookNotifications}
-                                    onChange={(value) => updateSetting('fileIntegrity', 'webhookNotifications', value)}
-                                />
-                            </div>
-                        </div>
+                {renderModernCard('fileIntegrity', __('File Integrity Scanner', 'securepress-x'), <FileText className="card-icon" />, (
+                    <div className="settings-group">
+                        {renderSettingField(
+                            __('Enable File Integrity Scanner', 'securepress-x'),
+                            settings.fileIntegrity.enabled,
+                            (value) => updateSetting('fileIntegrity', 'enabled', value)
+                        )}
+                        
+                        {renderSettingField(
+                            __('Scan Frequency', 'securepress-x'),
+                            settings.fileIntegrity.frequency,
+                            (value) => updateSetting('fileIntegrity', 'frequency', value),
+                            'select',
+                            [
+                                { label: __('Daily', 'securepress-x'), value: 'daily' },
+                                { label: __('Weekly', 'securepress-x'), value: 'weekly' },
+                                { label: __('Monthly', 'securepress-x'), value: 'monthly' },
+                            ]
+                        )}
+                        
+                        {renderSettingField(
+                            __('Scan WordPress Core', 'securepress-x'),
+                            settings.fileIntegrity.scanCore,
+                            (value) => updateSetting('fileIntegrity', 'scanCore', value)
+                        )}
+                        
+                        {renderSettingField(
+                            __('Scan Plugins', 'securepress-x'),
+                            settings.fileIntegrity.scanPlugins,
+                            (value) => updateSetting('fileIntegrity', 'scanPlugins', value)
+                        )}
+                        
+                        {renderSettingField(
+                            __('Scan Themes', 'securepress-x'),
+                            settings.fileIntegrity.scanThemes,
+                            (value) => updateSetting('fileIntegrity', 'scanThemes', value)
+                        )}
+                        
+                        {renderSettingField(
+                            __('Email Notifications', 'securepress-x'),
+                            settings.fileIntegrity.emailNotifications,
+                            (value) => updateSetting('fileIntegrity', 'emailNotifications', value)
+                        )}
+                        
+                        {renderSettingField(
+                            __('Webhook Notifications', 'securepress-x'),
+                            settings.fileIntegrity.webhookNotifications,
+                            (value) => updateSetting('fileIntegrity', 'webhookNotifications', value)
+                        )}
                     </div>
                 ))}
 
                 {/* Brute Force Protection */}
-                {renderCollapsibleCard('bruteForce', __('Brute Force Protection', 'securepress-x'), <Shield className="card-icon" />, (
-                    <div className="space-y-4">
-                        <div className="setting-field">
-                            <div className="setting-control">
-                                <label>{__('Enable Brute Force Protection', 'securepress-x')}</label>
-                                <ToggleControl
-                                    checked={settings.bruteForce.enabled}
-                                    onChange={(value) => updateSetting('bruteForce', 'enabled', value)}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="setting-field">
-                            <TextControl
-                                label={__('Maximum Login Attempts', 'securepress-x')}
-                                type="number"
-                                value={settings.bruteForce.maxAttempts}
-                                onChange={(value) => updateSetting('bruteForce', 'maxAttempts', parseInt(value))}
-                            />
-                        </div>
-
-                        <div className="setting-field">
-                            <TextControl
-                                label={__('Lockout Duration (Minutes)', 'securepress-x')}
-                                type="number"
-                                value={settings.bruteForce.lockoutDuration}
-                                onChange={(value) => updateSetting('bruteForce', 'lockoutDuration', parseInt(value))}
-                            />
-                        </div>
-
-                        <div className="setting-field">
-                            <div className="setting-control">
-                                <label>{__('Enable reCAPTCHA', 'securepress-x')}</label>
-                                <ToggleControl
-                                    checked={settings.bruteForce.recaptcha}
-                                    onChange={(value) => updateSetting('bruteForce', 'recaptcha', value)}
-                                />
-                            </div>
-                        </div>
+                {renderModernCard('bruteForce', __('Brute Force Protection', 'securepress-x'), <Shield className="card-icon" />, (
+                    <div className="settings-group">
+                        {renderSettingField(
+                            __('Enable Brute Force Protection', 'securepress-x'),
+                            settings.bruteForce.enabled,
+                            (value) => updateSetting('bruteForce', 'enabled', value)
+                        )}
+                        
+                        {renderSettingField(
+                            __('Maximum Login Attempts', 'securepress-x'),
+                            settings.bruteForce.maxAttempts,
+                            (value) => updateSetting('bruteForce', 'maxAttempts', parseInt(value)),
+                            'number'
+                        )}
+                        
+                        {renderSettingField(
+                            __('Lockout Duration (Minutes)', 'securepress-x'),
+                            settings.bruteForce.lockoutDuration,
+                            (value) => updateSetting('bruteForce', 'lockoutDuration', parseInt(value)),
+                            'number'
+                        )}
+                        
+                        {renderSettingField(
+                            __('Enable reCAPTCHA', 'securepress-x'),
+                            settings.bruteForce.recaptcha,
+                            (value) => updateSetting('bruteForce', 'recaptcha', value)
+                        )}
                     </div>
                 ))}
 
-                {/* API Access Control */}
-                {renderCollapsibleCard('apiAccess', __('API Access Control', 'securepress-x'), <Globe className="card-icon" />, (
-                    <div className="space-y-4">
-                        <div className="setting-field">
-                            <div className="setting-control">
-                                <label>{__('Enable XML-RPC', 'securepress-x')}</label>
-                                <ToggleControl
-                                    checked={settings.apiAccess.xmlrpc}
-                                    onChange={(value) => updateSetting('apiAccess', 'xmlrpc', value)}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="setting-field">
-                            <div className="setting-control">
-                                <label>{__('Enable REST API', 'securepress-x')}</label>
-                                <ToggleControl
-                                    checked={settings.apiAccess.restApi}
-                                    onChange={(value) => updateSetting('apiAccess', 'restApi', value)}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="setting-field">
-                            <div className="setting-control">
-                                <label>{__('Restrict REST API Access', 'securepress-x')}</label>
-                                <ToggleControl
-                                    checked={settings.apiAccess.restrictRestApi}
-                                    onChange={(value) => updateSetting('apiAccess', 'restrictRestApi', value)}
-                                />
-                            </div>
-                        </div>
+                {/* API Access */}
+                {renderModernCard('apiAccess', __('API Access', 'securepress-x'), <Globe className="card-icon" />, (
+                    <div className="settings-group">
+                        {renderSettingField(
+                            __('Enable XML-RPC', 'securepress-x'),
+                            settings.apiAccess.xmlrpc,
+                            (value) => updateSetting('apiAccess', 'xmlrpc', value)
+                        )}
+                        
+                        {renderSettingField(
+                            __('Enable REST API', 'securepress-x'),
+                            settings.apiAccess.restApi,
+                            (value) => updateSetting('apiAccess', 'restApi', value)
+                        )}
+                        
+                        {renderSettingField(
+                            __('Restrict REST API Access', 'securepress-x'),
+                            settings.apiAccess.restrictRestApi,
+                            (value) => updateSetting('apiAccess', 'restrictRestApi', value)
+                        )}
                     </div>
                 ))}
 
                 {/* Two-Factor Authentication */}
-                {renderCollapsibleCard('twoFactor', __('Two-Factor Authentication', 'securepress-x'), <Lock className="card-icon" />, (
-                    <div className="space-y-4">
-                        <div className="setting-field">
-                            <div className="setting-control">
-                                <label>{__('Enable 2FA (TOTP)', 'securepress-x')}</label>
-                                <ToggleControl
-                                    checked={settings.twoFactor.enabled}
-                                    onChange={(value) => updateSetting('twoFactor', 'enabled', value)}
-                                />
-                            </div>
-                        </div>
-                        <p className="setting-description">
-                            {__('Phase 2 Feature - Coming Soon', 'securepress-x')}
-                        </p>
+                {renderModernCard('twoFactor', __('Two-Factor Authentication', 'securepress-x'), <Lock className="card-icon" />, (
+                    <div className="settings-group">
+                        {renderSettingField(
+                            __('Enable 2FA (TOTP)', 'securepress-x'),
+                            settings.twoFactor.enabled,
+                            (value) => updateSetting('twoFactor', 'enabled', value),
+                            'toggle',
+                            null,
+                            __('Phase 2 Feature - Coming Soon', 'securepress-x')
+                        )}
+                    </div>
+                ))}
+
+                {/* Auto-Update Security Patches */}
+                {renderModernCard('autoUpdate', __('Auto-Update Security Patches', 'securepress-x'), <SettingsIcon className="card-icon" />, (
+                    <div className="settings-group">
+                        {renderSettingField(
+                            __('Enable Auto-Updates for Security Patches', 'securepress-x'),
+                            settings.autoUpdate.enabled,
+                            (value) => updateSetting('autoUpdate', 'enabled', value),
+                            'toggle',
+                            null,
+                            __('Phase 2 Feature - Coming Soon', 'securepress-x')
+                        )}
                     </div>
                 ))}
 
                 {/* Security Hardening */}
-                {renderCollapsibleCard('securityHardening', __('Security Hardening', 'securepress-x'), <Shield className="card-icon" />, (
-                    <div className="space-y-4">
+                {renderModernCard('securityHardening', __('Security Hardening', 'securepress-x'), <Shield className="card-icon" />, (
+                    <div className="settings-group">
                         <Button
                             isSecondary
                             onClick={() => updateSetting('securityHardening', 'secureAll', !settings.securityHardening.secureAll)}
@@ -443,132 +441,84 @@ const Settings = () => {
                             {__('Secure All', 'securepress-x')}
                         </Button>
 
-                        <div className="setting-field">
-                            <div className="setting-control">
-                                <label>{__('Disable File Editor', 'securepress-x')}</label>
-                                <ToggleControl
-                                    checked={settings.securityHardening.disableFileEditor}
-                                    onChange={(value) => updateSetting('securityHardening', 'disableFileEditor', value)}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="setting-field">
-                            <div className="setting-control">
-                                <label>{__('Disable Debug Mode', 'securepress-x')}</label>
-                                <ToggleControl
-                                    checked={settings.securityHardening.disableDebugMode}
-                                    onChange={(value) => updateSetting('securityHardening', 'disableDebugMode', value)}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="setting-field">
-                            <div className="setting-control">
-                                <label>{__('Disable User Enumeration', 'securepress-x')}</label>
-                                <ToggleControl
-                                    checked={settings.securityHardening.disableUserEnumeration}
-                                    onChange={(value) => updateSetting('securityHardening', 'disableUserEnumeration', value)}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="setting-field">
-                            <div className="setting-control">
-                                <label>{__('Hide WordPress Version', 'securepress-x')}</label>
-                                <ToggleControl
-                                    checked={settings.securityHardening.hideWpVersion}
-                                    onChange={(value) => updateSetting('securityHardening', 'hideWpVersion', value)}
-                                />
-                            </div>
-                        </div>
-                    </div>
-                ))}
-
-                {/* Auto-Update Security Patches */}
-                {renderCollapsibleCard('autoUpdate', __('Auto-Update Security Patches', 'securepress-x'), <SettingsIcon className="card-icon" />, (
-                    <div className="space-y-4">
-                        <div className="setting-field">
-                            <div className="setting-control">
-                                <label>{__('Enable Auto-Updates for Security Patches', 'securepress-x')}</label>
-                                <ToggleControl
-                                    checked={settings.autoUpdate.enabled}
-                                    onChange={(value) => updateSetting('autoUpdate', 'enabled', value)}
-                                />
-                            </div>
-                        </div>
-                        <p className="setting-description">
-                            {__('Phase 2 Feature - Coming Soon', 'securepress-x')}
-                        </p>
+                        {renderSettingField(
+                            __('Disable File Editor', 'securepress-x'),
+                            settings.securityHardening.disableFileEditor,
+                            (value) => updateSetting('securityHardening', 'disableFileEditor', value)
+                        )}
+                        
+                        {renderSettingField(
+                            __('Disable Debug Mode', 'securepress-x'),
+                            settings.securityHardening.disableDebugMode,
+                            (value) => updateSetting('securityHardening', 'disableDebugMode', value)
+                        )}
+                        
+                        {renderSettingField(
+                            __('Disable User Enumeration', 'securepress-x'),
+                            settings.securityHardening.disableUserEnumeration,
+                            (value) => updateSetting('securityHardening', 'disableUserEnumeration', value)
+                        )}
+                        
+                        {renderSettingField(
+                            __('Hide WordPress Version', 'securepress-x'),
+                            settings.securityHardening.hideWpVersion,
+                            (value) => updateSetting('securityHardening', 'hideWpVersion', value)
+                        )}
                     </div>
                 ))}
 
                 {/* Audit Log & Notifications */}
-                {renderCollapsibleCard('auditLog', __('Audit Log & Notifications', 'securepress-x'), <FileText className="card-icon" />, (
-                    <div className="space-y-4">
-                        <div className="setting-field">
-                            <div className="setting-control">
-                                <label>{__('Enable Audit Logging', 'securepress-x')}</label>
-                                <ToggleControl
-                                    checked={settings.auditLog.enabled}
-                                    onChange={(value) => updateSetting('auditLog', 'enabled', value)}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="setting-field">
-                            <TextControl
-                                label={__('Log Retention (Days)', 'securepress-x')}
-                                type="number"
-                                value={settings.auditLog.retention}
-                                onChange={(value) => updateSetting('auditLog', 'retention', parseInt(value))}
-                            />
-                        </div>
-
-                        <div className="setting-field">
-                            <div className="setting-control">
-                                <label>{__('Enable Notifications', 'securepress-x')}</label>
-                                <ToggleControl
-                                    checked={settings.auditLog.notifications}
-                                    onChange={(value) => updateSetting('auditLog', 'notifications', value)}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="setting-field">
-                            <SelectControl
-                                label={__('Notification Method', 'securepress-x')}
-                                value={settings.auditLog.notificationMethod}
-                                options={[
-                                    { label: __('Email', 'securepress-x'), value: 'email' },
-                                    { label: __('Webhook', 'securepress-x'), value: 'webhook' },
-                                    { label: __('Both', 'securepress-x'), value: 'both' },
-                                ]}
-                                onChange={(value) => updateSetting('auditLog', 'notificationMethod', value)}
-                            />
-                        </div>
-
-                        <div className="setting-field">
-                            <TextControl
-                                label={__('Notification Email', 'securepress-x')}
-                                type="email"
-                                value={settings.auditLog.notificationEmail}
-                                onChange={(value) => updateSetting('auditLog', 'notificationEmail', value)}
-                            />
-                        </div>
-
-                        <div className="setting-field">
-                            <SelectControl
-                                label={__('Log Level', 'securepress-x')}
-                                value={settings.auditLog.logLevel}
-                                options={[
-                                    { label: __('All Events', 'securepress-x'), value: 'all' },
-                                    { label: __('Warnings & Errors', 'securepress-x'), value: 'warnings' },
-                                    { label: __('Errors Only', 'securepress-x'), value: 'errors' },
-                                ]}
-                                onChange={(value) => updateSetting('auditLog', 'logLevel', value)}
-                            />
-                        </div>
+                {renderModernCard('auditLog', __('Audit Log & Notifications', 'securepress-x'), <FileText className="card-icon" />, (
+                    <div className="settings-group">
+                        {renderSettingField(
+                            __('Enable Audit Logging', 'securepress-x'),
+                            settings.auditLog.enabled,
+                            (value) => updateSetting('auditLog', 'enabled', value)
+                        )}
+                        
+                        {renderSettingField(
+                            __('Log Retention (Days)', 'securepress-x'),
+                            settings.auditLog.retention,
+                            (value) => updateSetting('auditLog', 'retention', parseInt(value)),
+                            'number'
+                        )}
+                        
+                        {renderSettingField(
+                            __('Enable Notifications', 'securepress-x'),
+                            settings.auditLog.notifications,
+                            (value) => updateSetting('auditLog', 'notifications', value)
+                        )}
+                        
+                        {renderSettingField(
+                            __('Notification Method', 'securepress-x'),
+                            settings.auditLog.notificationMethod,
+                            (value) => updateSetting('auditLog', 'notificationMethod', value),
+                            'select',
+                            [
+                                { label: __('Email', 'securepress-x'), value: 'email' },
+                                { label: __('Webhook', 'securepress-x'), value: 'webhook' },
+                                { label: __('Both', 'securepress-x'), value: 'both' },
+                            ]
+                        )}
+                        
+                        {renderSettingField(
+                            __('Notification Email', 'securepress-x'),
+                            settings.auditLog.notificationEmail,
+                            (value) => updateSetting('auditLog', 'notificationEmail', value),
+                            'email'
+                        )}
+                        
+                        {renderSettingField(
+                            __('Log Level', 'securepress-x'),
+                            settings.auditLog.logLevel,
+                            (value) => updateSetting('auditLog', 'logLevel', value),
+                            'select',
+                            [
+                                { label: __('All Events', 'securepress-x'), value: 'all' },
+                                { label: __('Warnings & Errors', 'securepress-x'), value: 'warnings' },
+                                { label: __('Errors Only', 'securepress-x'), value: 'errors' },
+                            ]
+                        )}
                     </div>
                 ))}
             </div>
