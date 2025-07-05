@@ -48,7 +48,7 @@ abstract class SecurePress_Module {
      * Load module settings from database
      */
     protected function load_settings() {
-        $all_settings = get_option('securepress_settings', array());
+        $all_settings = get_option('securepress_x_settings', array());
         $this->settings = isset($all_settings[$this->module_name]) ? $all_settings[$this->module_name] : array();
     }
     
@@ -110,9 +110,9 @@ abstract class SecurePress_Module {
      * @return bool Success status
      */
     protected function save_settings() {
-        $all_settings = get_option('securepress_settings', array());
+        $all_settings = get_option('securepress_x_settings', array());
         $all_settings[$this->module_name] = $this->settings;
-        return update_option('securepress_settings', $all_settings);
+        return update_option('securepress_x_settings', $all_settings);
     }
     
     /**
@@ -133,19 +133,16 @@ abstract class SecurePress_Module {
      */
     protected function log($message, $level = 'info', $context = array()) {
         if (class_exists('SecurePress_Logger')) {
+            // Ensure context is an array
+            $context = is_array($context) ? $context : array();
+            
             // Add module name to context
             $context['module'] = $this->module_name;
             
             // Create log type from context and message
-            $type = !empty($context['type']) ? $context['type'] : 'module_event';
+            $type = isset($context['type']) && !empty($context['type']) ? $context['type'] : 'module_event';
             
-            // Convert context to JSON for storage
-            $context_json = wp_json_encode($context);
-            if ($context_json === false) {
-                $context_json = '{"error": "Failed to encode context"}';
-            }
-            
-            SecurePress_Logger::log($type, $message, $context_json);
+            SecurePress_Logger::log($type, $message, $level);
         }
     }
     
@@ -216,6 +213,7 @@ abstract class SecurePress_Module {
                         $validated[$key] = (bool) $value;
                         break;
                     case 'integer':
+                    case 'number':
                         $validated[$key] = (int) $value;
                         break;
                     case 'string':
@@ -229,6 +227,18 @@ abstract class SecurePress_Module {
                         break;
                     case 'email':
                         $validated[$key] = sanitize_email($value);
+                        break;
+                    case 'select':
+                        // Ensure value is one of the allowed options
+                        if (isset($field['options']) && is_array($field['options'])) {
+                            if (array_key_exists($value, $field['options'])) {
+                                $validated[$key] = $value;
+                            } else {
+                                $validated[$key] = isset($field['default']) ? $field['default'] : '';
+                            }
+                        } else {
+                            $validated[$key] = $value;
+                        }
                         break;
                     default:
                         $validated[$key] = $value;
@@ -251,11 +261,10 @@ abstract class SecurePress_Module {
      */
     public function get_status() {
         return array(
-            'enabled' => $this->is_enabled(),
             'name' => $this->get_display_name(),
+            'enabled' => $this->is_enabled(),
             'description' => $this->get_description(),
-            'settings_count' => count($this->settings),
-            'last_updated' => get_option('securepress_' . $this->module_name . '_last_updated', ''),
+            'icon' => $this->get_icon()
         );
     }
 } 

@@ -48,6 +48,32 @@ if (!defined('SECUREPRESS_X_URL')) {
     define('SECUREPRESS_X_URL', plugin_dir_url(__FILE__));
 }
 
+/**
+ * Apply critical security settings very early
+ * This runs before WordPress fully loads
+ */
+function securepress_apply_early_security_settings() {
+    // Get settings from options table
+    $settings = get_option('securepress_x_settings', array());
+    
+    // Check if hardening is enabled
+    if (isset($settings['hardening']) && isset($settings['hardening']['file_editor_disabled']) && $settings['hardening']['file_editor_disabled']) {
+        if (!defined('DISALLOW_FILE_EDIT')) {
+            define('DISALLOW_FILE_EDIT', true);
+        }
+    }
+    
+    // Apply file modification restriction if enabled
+    if (isset($settings['hardening']) && isset($settings['hardening']['disable_file_mods']) && $settings['hardening']['disable_file_mods']) {
+        if (!defined('DISALLOW_FILE_MODS')) {
+            define('DISALLOW_FILE_MODS', true);
+        }
+    }
+}
+
+// Run early security settings before WordPress loads
+securepress_apply_early_security_settings();
+
 // Minimum requirements check
 if (!function_exists('securepress_requirements_check')) {
     function securepress_requirements_check() {

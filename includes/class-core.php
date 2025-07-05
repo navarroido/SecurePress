@@ -275,7 +275,7 @@ class SecurePress_Core {
      */
     public function update_settings($new_settings) {
         $this->settings = $new_settings;
-        return update_option('securepress_settings', $new_settings);
+        return update_option('securepress_x_settings', $new_settings);
     }
     
     /**
