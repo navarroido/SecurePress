@@ -82,35 +82,52 @@ class SecurePress_File_Integrity extends SecurePress_Module {
                 'title' => __('Enable File Integrity Scanner', 'securepress-x'),
                 'description' => __('Monitor WordPress files for unauthorized changes', 'securepress-x')
             ),
-            'check_core' => array(
+            'scan_core' => array(
                 'type' => 'boolean',
                 'default' => true,
                 'title' => __('Check WordPress Core', 'securepress-x'),
                 'description' => __('Verify WordPress core files integrity', 'securepress-x')
             ),
-            'check_plugins' => array(
+            'scan_plugins' => array(
                 'type' => 'boolean',
                 'default' => true,
                 'title' => __('Check Plugins', 'securepress-x'),
                 'description' => __('Monitor plugin files for changes', 'securepress-x')
             ),
-            'check_themes' => array(
+            'scan_themes' => array(
                 'type' => 'boolean',
                 'default' => true,
                 'title' => __('Check Themes', 'securepress-x'),
                 'description' => __('Monitor theme files for changes', 'securepress-x')
             ),
-            'email_notifications' => array(
+            'notify_email' => array(
                 'type' => 'boolean',
-                'default' => true,
+                'default' => false,
                 'title' => __('Email Notifications', 'securepress-x'),
                 'description' => __('Send email alerts when issues are detected', 'securepress-x')
+            ),
+            'notify_webhook' => array(
+                'type' => 'boolean',
+                'default' => false,
+                'title' => __('Webhook Notifications', 'securepress-x'),
+                'description' => __('Send webhook notifications when issues are detected', 'securepress-x')
             ),
             'webhook_url' => array(
                 'type' => 'url',
                 'default' => '',
                 'title' => __('Webhook URL', 'securepress-x'),
                 'description' => __('Send alerts to this webhook URL', 'securepress-x')
+            ),
+            'scan_frequency' => array(
+                'type' => 'select',
+                'default' => 'daily',
+                'options' => array(
+                    'daily' => __('Daily', 'securepress-x'),
+                    'weekly' => __('Weekly', 'securepress-x'),
+                    'monthly' => __('Monthly', 'securepress-x')
+                ),
+                'title' => __('Scan Frequency', 'securepress-x'),
+                'description' => __('How often to run integrity checks', 'securepress-x')
             )
         );
     }

@@ -48,25 +48,29 @@ class SecurePress_Security_Hardening extends SecurePress_Module {
         
         $settings = $this->get_settings();
         
-        // TODO: Add conditional hooks based on settings
-        if ($settings['disable_file_editing'] ?? true) {
+        // Add conditional hooks based on settings
+        if (isset($settings['file_editor_disabled']) && $settings['file_editor_disabled']) {
             add_action('init', array($this, 'disable_file_editing'));
         }
         
-        if ($settings['remove_wp_version'] ?? true) {
+        if (isset($settings['disable_file_mods']) && $settings['disable_file_mods']) {
+            add_action('init', array($this, 'disable_file_modifications'));
+        }
+        
+        if (isset($settings['disable_version_info']) && $settings['disable_version_info']) {
             add_filter('the_generator', '__return_empty_string');
             add_action('wp_head', array($this, 'remove_version_info'), 1);
         }
         
-        if ($settings['disable_xmlrpc'] ?? false) {
+        if (isset($settings['disable_xmlrpc']) && $settings['disable_xmlrpc']) {
             add_filter('xmlrpc_enabled', '__return_false');
         }
         
-        if ($settings['disable_pingbacks'] ?? true) {
+        if (isset($settings['disable_pingbacks']) && $settings['disable_pingbacks']) {
             add_filter('xmlrpc_methods', array($this, 'disable_pingback_methods'));
         }
         
-        // TODO: Add more hardening hooks
+        // Add more hardening hooks
         add_action('init', array($this, 'apply_hardening_measures'));
     }
     
@@ -81,6 +85,17 @@ class SecurePress_Security_Hardening extends SecurePress_Module {
         }
         
         $this->log('File editing disabled in admin', 'info');
+    }
+    
+    /**
+     * Disable file modifications
+     * 
+     * TODO: Implement file modification disabling
+     */
+    public function disable_file_modifications() {
+        // TODO: Implement file modification disabling
+        
+        $this->log('File modifications disabled', 'info');
     }
     
     /**
@@ -184,13 +199,19 @@ class SecurePress_Security_Hardening extends SecurePress_Module {
                 'title' => __('Enable Security Hardening', 'securepress-x'),
                 'description' => __('Apply security hardening measures', 'securepress-x')
             ),
-            'disable_file_editing' => array(
+            'file_editor_disabled' => array(
                 'type' => 'boolean',
                 'default' => true,
                 'title' => __('Disable File Editing', 'securepress-x'),
                 'description' => __('Disable theme/plugin editing in admin', 'securepress-x')
             ),
-            'remove_wp_version' => array(
+            'disable_file_mods' => array(
+                'type' => 'boolean',
+                'default' => false,
+                'title' => __('Disable File Modifications', 'securepress-x'),
+                'description' => __('Disable all file modifications including plugin/theme updates', 'securepress-x')
+            ),
+            'disable_version_info' => array(
                 'type' => 'boolean',
                 'default' => true,
                 'title' => __('Remove WordPress Version', 'securepress-x'),
@@ -270,19 +291,43 @@ class SecurePress_Security_Hardening extends SecurePress_Module {
     public function init() {
         // Initialize security hardening
         if ($this->is_enabled()) {
-            // Apply security hardening measures
-            if ($this->get_setting('disable_file_editing', true)) {
-                if (!defined('DISALLOW_FILE_EDIT')) {
-                    define('DISALLOW_FILE_EDIT', true);
-                }
-            }
+            // Note: Critical settings like DISALLOW_FILE_EDIT are already applied
+            // in securepress_apply_early_security_settings() in the main plugin file
             
-            if ($this->get_setting('remove_version_info', true)) {
+            // Apply non-critical settings that can be set later
+            if ($this->get_setting('disable_version_info', true)) {
                 remove_action('wp_head', 'wp_generator');
                 add_filter('the_generator', '__return_empty_string');
+                add_filter('script_loader_src', array($this, 'remove_version_parameter'));
+                add_filter('style_loader_src', array($this, 'remove_version_parameter'));
+            }
+            
+            if ($this->get_setting('disable_xmlrpc', false)) {
+                add_filter('xmlrpc_enabled', '__return_false');
+            }
+            
+            if ($this->get_setting('hide_login_errors', true)) {
+                add_filter('login_errors', array($this, 'generic_login_error'));
+            }
+            
+            if ($this->get_setting('disable_user_enumeration', true)) {
+                add_action('template_redirect', array($this, 'prevent_user_enumeration'));
             }
         }
         
         $this->log('Security hardening module initialized', 'info');
+    }
+    
+    /**
+     * Remove version parameter from scripts and styles
+     * 
+     * @param string $src Source URL
+     * @return string Modified URL
+     */
+    public function remove_version_parameter($src) {
+        if (strpos($src, 'ver=')) {
+            $src = remove_query_arg('ver', $src);
+        }
+        return $src;
     }
 } 

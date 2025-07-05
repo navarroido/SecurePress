@@ -84,8 +84,10 @@ class SecurePress_Logger {
     public function cleanup_old_logs() {
         global $wpdb;
 
-        $settings = get_option('securepress_settings', array());
-        $retention_days = isset($settings['logging']['retention_days']) ? (int) $settings['logging']['retention_days'] : 30;
+        // Get settings from the correct option
+        $settings = get_option('securepress_x_settings', array());
+        $audit_log_settings = isset($settings['audit_log']) ? $settings['audit_log'] : array();
+        $retention_days = isset($audit_log_settings['retention_days']) ? (int) $audit_log_settings['retention_days'] : 30;
 
         $wpdb->query(
             $wpdb->prepare(
@@ -100,10 +102,10 @@ class SecurePress_Logger {
      *
      * @param string $type Event type
      * @param string $message Event message
-     * @param string $severity Event severity (high, medium, low)
+     * @param string $severity Event severity (info, warning, error)
      * @return bool
      */
-    public static function log($type, $message, $severity = 'low') {
+    public static function log($type, $message, $severity = 'info') {
         return self::instance()->log_event($type, $message, $severity);
     }
 
@@ -112,10 +114,10 @@ class SecurePress_Logger {
      *
      * @param string $type Event type
      * @param string $message Event message
-     * @param string $severity JSON encoded context data
+     * @param string $severity Severity level (info, warning, error)
      * @return bool
      */
-    private function log_event($type, $message, $severity = '{}') {
+    private function log_event($type, $message, $severity = 'info') {
         global $wpdb;
 
         // Ensure table exists
@@ -124,23 +126,30 @@ class SecurePress_Logger {
             return false;
         }
 
+        // Validate severity
+        if (!in_array($severity, array('info', 'warning', 'error'))) {
+            $severity = 'info';
+        }
+
         $current_user = wp_get_current_user();
         $user = $current_user->exists() ? $current_user->user_login : 'Guest';
 
         $data = array(
             'type' => $type,
             'message' => $message,
-            'severity' => $severity, // Already JSON encoded
+            'severity' => $severity,
             'ip' => $this->get_client_ip(),
-            'user' => $user
+            'user' => $user,
+            'timestamp' => current_time('mysql')
         );
 
         $format = array(
             '%s', // type
             '%s', // message
-            '%s', // severity (JSON)
+            '%s', // severity
             '%s', // ip
-            '%s'  // user
+            '%s', // user
+            '%s'  // timestamp
         );
 
         $result = $wpdb->insert($this->table_name, $data, $format);
@@ -150,6 +159,7 @@ class SecurePress_Logger {
             return true;
         }
 
+        error_log('SecurePress X: Failed to insert log entry: ' . $wpdb->last_error);
         return false;
     }
 
@@ -161,29 +171,30 @@ class SecurePress_Logger {
      * @param string $severity
      */
     private function maybe_send_alert($type, $message, $severity) {
-        $settings = get_option('securepress_settings', array());
+        // Get settings from the correct option
+        $settings = get_option('securepress_x_settings', array());
+        $audit_log_settings = isset($settings['audit_log']) ? $settings['audit_log'] : array();
         
-        if (empty($settings['notifications']['email_alerts'])) {
+        if (empty($audit_log_settings['notifications_enabled']) || $audit_log_settings['notifications_enabled'] !== true) {
             return;
         }
 
-        $alert_level = $settings['notifications']['alert_severity_level'];
+        if ($audit_log_settings['notification_type'] !== 'email' || empty($audit_log_settings['notification_email'])) {
+            return;
+        }
+
+        // Check if we should send an alert based on severity and log level
+        $log_level = isset($audit_log_settings['log_level']) ? $audit_log_settings['log_level'] : 'all';
         
-        // Check if we should send an alert based on severity
-        if ($alert_level === 'high' && $severity !== 'high') {
+        if ($log_level === 'errors' && $severity !== 'error') {
             return;
         }
-        if ($alert_level === 'medium' && !in_array($severity, array('high', 'medium'))) {
+        
+        if ($log_level === 'warnings' && !in_array($severity, array('error', 'warning'))) {
             return;
         }
 
-        $recipients = explode(',', $settings['notifications']['email_recipients']);
-        $recipients = array_map('trim', $recipients);
-        $recipients = array_filter($recipients);
-
-        if (empty($recipients)) {
-            $recipients = array(get_option('admin_email'));
-        }
+        $recipient = $audit_log_settings['notification_email'];
 
         $subject = sprintf(
             __('[SecurePress X] Security Alert: %s', 'securepress-x'),
@@ -200,9 +211,7 @@ class SecurePress_Logger {
             current_time('mysql')
         );
 
-        foreach ($recipients as $recipient) {
-            wp_mail($recipient, $subject, $body);
-        }
+        wp_mail($recipient, $subject, $body);
     }
 
     /**
@@ -240,7 +249,6 @@ class SecurePress_Logger {
         $defaults = array(
             'page' => 1,
             'per_page' => 20,
-            'level' => '',
             'search' => '',
             'type' => '',
             'severity' => '',
@@ -250,79 +258,55 @@ class SecurePress_Logger {
         
         $args = wp_parse_args($args, $defaults);
         
-        // Build WHERE clause
-        $where_conditions = array();
-        $where_values = array();
+        $where = array('1=1');
+        $where_args = array();
         
-        if (!empty($args['level'])) {
-            $where_conditions[] = "severity = %s";
-            $where_values[] = $args['level'];
+        if (!empty($args['search'])) {
+            $where[] = '(message LIKE %s OR type LIKE %s OR user LIKE %s)';
+            $search_term = '%' . $wpdb->esc_like($args['search']) . '%';
+            $where_args[] = $search_term;
+            $where_args[] = $search_term;
+            $where_args[] = $search_term;
         }
         
         if (!empty($args['type'])) {
-            $where_conditions[] = "type = %s";
-            $where_values[] = $args['type'];
+            $where[] = 'type = %s';
+            $where_args[] = $args['type'];
         }
         
         if (!empty($args['severity'])) {
-            $where_conditions[] = "severity = %s";
-            $where_values[] = $args['severity'];
-        }
-        
-        if (!empty($args['search'])) {
-            $where_conditions[] = "(message LIKE %s OR type LIKE %s)";
-            $search_term = '%' . $wpdb->esc_like($args['search']) . '%';
-            $where_values[] = $search_term;
-            $where_values[] = $search_term;
+            $where[] = 'severity = %s';
+            $where_args[] = $args['severity'];
         }
         
         if (!empty($args['date_from'])) {
-            $where_conditions[] = "timestamp >= %s";
-            $where_values[] = $args['date_from'] . ' 00:00:00';
+            $where[] = 'timestamp >= %s';
+            $where_args[] = $args['date_from'] . ' 00:00:00';
         }
         
         if (!empty($args['date_to'])) {
-            $where_conditions[] = "timestamp <= %s";
-            $where_values[] = $args['date_to'] . ' 23:59:59';
+            $where[] = 'timestamp <= %s';
+            $where_args[] = $args['date_to'] . ' 23:59:59';
         }
         
-        $where_clause = '';
-        if (!empty($where_conditions)) {
-            $where_clause = 'WHERE ' . implode(' AND ', $where_conditions);
-        }
+        $where_clause = implode(' AND ', $where);
         
-        // Get total count
-        $count_query = "SELECT COUNT(*) FROM {$this->table_name} {$where_clause}";
-        if (!empty($where_values)) {
-            $count_query = $wpdb->prepare($count_query, $where_values);
-        }
-        $total = (int) $wpdb->get_var($count_query);
+        // Count total records
+        $count_query = "SELECT COUNT(*) FROM {$this->table_name} WHERE {$where_clause}";
+        $total = $wpdb->get_var($wpdb->prepare($count_query, $where_args));
         
-        // Get logs
+        // Get paginated results
         $offset = ($args['page'] - 1) * $args['per_page'];
-        $logs_query = "SELECT * FROM {$this->table_name} {$where_clause} ORDER BY timestamp DESC LIMIT %d OFFSET %d";
-        $query_values = array_merge($where_values, array($args['per_page'], $offset));
         
-        $logs_query = $wpdb->prepare($logs_query, $query_values);
-        $logs = $wpdb->get_results($logs_query);
+        $query = "SELECT * FROM {$this->table_name} WHERE {$where_clause} ORDER BY timestamp DESC LIMIT %d OFFSET %d";
+        $prepared_args = array_merge($where_args, array($args['per_page'], $offset));
         
-        // Format logs
-        $formatted_logs = array();
-        foreach ($logs as $log) {
-            $formatted_logs[] = array(
-                'id' => $log->id,
-                'type' => $log->type,
-                'message' => $log->message,
-                'severity' => $log->severity,
-                'timestamp' => $log->timestamp,
-                'ip' => $log->ip,
-                'user' => $log->user
-            );
-        }
+        $logs = $wpdb->get_results($wpdb->prepare($query, $prepared_args));
         
         return array(
-            'logs' => $formatted_logs,
-            'total' => $total
+            'logs' => $logs,
+            'total' => (int) $total,
+            'pages' => ceil($total / $args['per_page'])
         );
     }
 } 

@@ -43,10 +43,17 @@ class SecurePress_Bruteforce_Protection extends SecurePress_Module {
             return;
         }
         
-        // TODO: Add hooks for login monitoring
+        $settings = $this->get_settings();
+        
+        // Add hooks for login monitoring
         add_action('wp_login_failed', array($this, 'handle_failed_login'));
         add_action('wp_login', array($this, 'handle_successful_login'), 10, 2);
         add_filter('authenticate', array($this, 'check_ip_before_auth'), 30, 3);
+        
+        // Add CAPTCHA if enabled
+        if (isset($settings['recaptcha_enabled']) && $settings['recaptcha_enabled']) {
+            // TODO: Add reCAPTCHA hooks
+        }
     }
     
     /**
@@ -137,25 +144,29 @@ class SecurePress_Bruteforce_Protection extends SecurePress_Module {
             ),
             'lockout_duration' => array(
                 'type' => 'number',
-                'default' => 300,
+                'default' => 1800,
                 'min' => 60,
                 'max' => 86400,
                 'title' => __('Lockout Duration (seconds)', 'securepress-x'),
                 'description' => __('How long to block IP after max attempts', 'securepress-x')
             ),
-            'enable_captcha' => array(
+            'recaptcha_enabled' => array(
                 'type' => 'boolean',
                 'default' => false,
-                'title' => __('Enable CAPTCHA', 'securepress-x'),
-                'description' => __('Show CAPTCHA after failed attempts', 'securepress-x')
+                'title' => __('Enable reCAPTCHA', 'securepress-x'),
+                'description' => __('Show reCAPTCHA after failed attempts', 'securepress-x')
             ),
-            'captcha_threshold' => array(
-                'type' => 'number',
-                'default' => 3,
-                'min' => 1,
-                'max' => 10,
-                'title' => __('CAPTCHA Threshold', 'securepress-x'),
-                'description' => __('Failed attempts before showing CAPTCHA', 'securepress-x')
+            'recaptcha_site_key' => array(
+                'type' => 'string',
+                'default' => '',
+                'title' => __('reCAPTCHA Site Key', 'securepress-x'),
+                'description' => __('Google reCAPTCHA site key', 'securepress-x')
+            ),
+            'recaptcha_secret_key' => array(
+                'type' => 'string',
+                'default' => '',
+                'title' => __('reCAPTCHA Secret Key', 'securepress-x'),
+                'description' => __('Google reCAPTCHA secret key', 'securepress-x')
             ),
             'whitelist_ips' => array(
                 'type' => 'textarea',
