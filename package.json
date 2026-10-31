@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "SecurePress X Admin Interface",
   "scripts": {
-    "build": "webpack --mode production",
-    "dev": "webpack --mode development --watch",
+    "build": "node init && webpack --mode production",
+    "dev": "node init && webpack --mode development --watch",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
